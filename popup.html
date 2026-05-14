@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>시청 보상 설정</title>
+  <style>
+    body {
+      width: 360px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: #1c1c1e;
+      background: #fafafa;
+    }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    label { display: block; margin-top: 12px; font-weight: 500; font-size: 12px; color: #555; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      margin-top: 4px;
+      border: 1px solid #d1d1d6;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 14px;
+      background: #6a1b9a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #7b1fa2; }
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .status .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .status .label { color: #8e8e93; }
+    .status .value { font-weight: 500; }
+    .ok { color: #34c759; }
+    .bad { color: #ff3b30; }
+
+    .progress-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e5ea;
+    }
+    .progress-title {
+      font-size: 11px;
+      color: #8e8e93;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e5e5ea;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6a1b9a, #ab47bc);
+      transition: width 0.3s ease;
+    }
+    .progress-fill.cycle {
+      background: linear-gradient(90deg, #ff9800, #ffc107);
+    }
+
+    /* 4등분 progress bar */
+    .progress-bar.quartered {
+      height: 14px;
+      display: flex;
+      background: #e5e5ea;
+      gap: 2px;
+      padding: 1px;
+      border-radius: 4px;
+    }
+    .progress-bar.quartered .quarter {
+      flex: 1;
+      background: #f0f0f0;
+      position: relative;
+      overflow: hidden;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      color: #aaa;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .progress-bar.quartered .quarter.partial::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: var(--fill, 0%);
+      background: linear-gradient(90deg, #ff9800, #ffc107);
+      z-index: 0;
+    }
+    .progress-bar.quartered .quarter.complete {
+      background: linear-gradient(90deg, #4caf50, #66bb6a);
+      color: #fff;
+    }
+    .progress-bar.quartered .quarter .label {
+      position: relative;
+      z-index: 1;
+    }
+
+    .limit-line {
+      font-size: 11px;
+      color: #8e8e93;
+      margin-top: 4px;
+    }
+    .limit-line .num {
+      font-weight: bold;
+      color: #1c1c1e;
+    }
+    .limit-line.over {
+      color: #ff3b30;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #8e8e93;
+      line-height: 1.5;
+    }
+
+    .credit {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e5ea;
+      text-align: right;
+      font-size: 10px;
+      color: #8e8e93;
+      line-height: 1.7;
+    }
+    .credit .author {
+      font-weight: 600;
+      color: #555;
+    }
+    .credit a {
+      color: #6a1b9a;
+      text-decoration: none;
+    }
+    .credit a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>📺 시청 보상 설정</h1>
+
+  <label for="serverUrl">서버 주소</label>
+  <input id="serverUrl" type="url" placeholder="https://your-bot-server.example.com" />
+
+  <label for="token">인증 코드</label>
+  <input id="token" type="text" placeholder="디스코드 DM에서 받은 코드" />
+
+  <button id="save">저장</button>
+
+  <div class="status" id="status">
+    <div class="row">
+      <span class="label">상태</span>
+      <span class="value" id="state">미설정</span>
+    </div>
+    <div class="row">
+      <span class="label">시청자명</span>
+      <span class="value" id="nickname">-</span>
+    </div>
+    <div class="row">
+      <span class="label">시청 채널</span>
+      <span class="value" id="watchChannel">-</span>
+    </div>
+    <div class="row">
+      <span class="label">마지막 ping</span>
+      <span class="value" id="lastPing">-</span>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-title">
+        <span>다음 보상까지</span>
+        <span id="hourlyPct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="hourlyFill" style="width: 0%"></div>
+      </div>
+      <div class="progress-title" id="hourlyDetail">0분 / 60분</div>
+      <div class="limit-line" id="weeklyLimit">
+        주간 한도: <span class="num" id="weeklyCount">0</span> / 24
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-title">
+        <span>24시간 사이클</span>
+        <span id="cyclePct">0%</span>
+      </div>
+      <div class="progress-bar quartered" id="cycleQuartered">
+        <div class="quarter" data-threshold="21600">
+          <span class="label">6h</span>
+        </div>
+        <div class="quarter" data-threshold="43200">
+          <span class="label">12h</span>
+        </div>
+        <div class="quarter" data-threshold="64800">
+          <span class="label">18h</span>
+        </div>
+        <div class="quarter" data-threshold="86400">
+          <span class="label">24h</span>
+        </div>
+      </div>
+      <div class="limit-line" id="monthlyLimit">
+        월간 사이클: <span class="num" id="monthlyCount">0</span> / 4
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="row">
+        <span class="label">시간당 보상 대기</span>
+        <span class="value" id="pendingRewards">0개</span>
+      </div>
+      <div class="row">
+        <span class="label">마일스톤 수령 대기</span>
+        <span class="value" id="pendingMilestones">0개</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">
+    치지직 라이브 시청 페이지를 열어두면 자동으로 시청 시간이 적립됩니다.
+    마일스톤 보상은 디스코드 <code>/드롭스</code> 명령어에서 수령하세요.
+  </p>
+
+  <div class="credit">
+    <div class="author">Made by Yuupe</div>
+    <div>치지직 : <a href="https://chzzk.naver.com/" target="_blank">유페링</a></div>
+    <div>Contact : <a href="mailto:yuupe@naver.com">yuupe@naver.com</a></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "The Tower 2 시청 보상",
+  "description": "치지직 방송 시청 시간을 측정해 인게임 보상으로 연결합니다. 시청 페이지의 비디오 상태만 읽고 서버로 1분 단위 ping을 보냅니다.",
+  "version": "1.0.0",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://chzzk.naver.com/*",
+    "https://api.chzzk.naver.com/*",
+    "https://your-bot-server.example.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "시청 보상 설정"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chzzk.naver.com/live/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
