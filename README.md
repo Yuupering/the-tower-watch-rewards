@@ -2,13 +2,17 @@
 
 치지직(CHZZK) 방송 시청 시간을 측정해 마인크래프트 서버의 인게임 보상으로 연결해주는 크롬 확장 프로그램.
 
+현재 버전: v1.0.1
+
 ## 기능
 
 - 치지직 라이브 페이지에서 비디오 재생 상태를 1분 단위로 읽어 봇 서버로 ping
 - 누적 시청 시간을 popup에서 실시간 표시 (매 초 보간)
-- 24시간 사이클(6h / 12h / 18h / 24h) 마일스톤 진행률 시각화
-- 주간 시간당 한도 / 월간 사이클 한도 표기
+- 24시간 사이클(6h / 12h / 18h / 24h) 진행률 시각화
+- 주간 시간당 한도 / 월간 사이클 보상 한도 표기
 - 다중 채널 시청 지원 (popup에 동시 활성 채널 모두 표시)
+- 스트리머 본인 누적 시간 표시 (1시간 / 6시간 스트리밍 보상 진행률)
+- Service worker idle/background tab throttling 대응 (chrome.alarms + 능동 트리거)
 
 페이지 자동 조작은 일체 없음. 비디오 요소를 read-only로만 측정.
 
@@ -18,9 +22,15 @@
 |---|---|
 | `storage` | 인증 코드와 서버 URL을 로컬에 저장 |
 | `alarms` | Manifest V3 service worker keep-alive 알람 (1분 주기) |
+| `tabs` | 알람으로 깨어났을 때 chzzk 라이브 탭에 ping 트리거 메시지 전송 |
 | `https://chzzk.naver.com/*` | 시청 페이지에서 비디오 상태 측정 |
 | `https://api.chzzk.naver.com/*` | 채널 이름 조회 (UI 표시용) |
 | `https://your-bot-server.example.com/*` | 봇 서버로 ping/상태 조회 |
+
+## 변경 이력
+
+- v1.0.1: service worker idle + background tab throttle 대응 (tabs 권한 추가) / 스트리머 누적 표시 / 용어 정리 (마일스톤 → 사이클 보상 / 스트리밍 보상)
+- v1.0.0: 초기 출시
 
 ## 설치 (개발자 모드)
 

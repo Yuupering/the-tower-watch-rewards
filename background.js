@@ -46,13 +46,27 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-// content script가 비활성 탭에서 setInterval이 throttled 될 수 있어 보조로 alarms도 사용
+// content script가 비활성 탭에서 setInterval이 throttled 될 수 있어 보조로 alarms도 사용.
+// MV3 service worker는 idle 시 자동 종료되는데, chrome.alarms는 종료된 worker도
+// 깨워줌. 깨어난 worker가 chrome.tabs.query로 모든 chzzk 라이브 탭에 FORCE_PING
+// 메시지를 보내고, content.js가 그 시점의 video 상태로 즉시 ping을 보냄.
+// → 사용자가 다른 탭에서 작업하더라도 1분 주기 ping이 끊기지 않음.
 chrome.alarms.create("drops-heartbeat", { periodInMinutes: DEFAULT_INTERVAL_MIN });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== "drops-heartbeat") return;
-  // 알람만으로는 비디오 상태를 알 수 없음 — content script가 살아있어야만 의미 있음.
-  // 알람은 service worker keep-alive 용도.
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://chzzk.naver.com/live/*" });
+    for (const tab of tabs) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: "FORCE_PING" });
+      } catch (e) {
+        // content script 미주입된 탭은 무시 (페이지가 아직 load 중인 경우 등)
+      }
+    }
+  } catch (e) {
+    console.debug("[drops] heartbeat alarm failed:", e);
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {

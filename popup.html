@@ -243,15 +243,53 @@
         <span class="value" id="pendingRewards">0개</span>
       </div>
       <div class="row">
-        <span class="label">마일스톤 수령 대기</span>
+        <span class="label">월간 사이클 보상 대기</span>
         <span class="value" id="pendingMilestones">0개</span>
+      </div>
+    </div>
+
+    <!-- 스트리머 전용 섹션 — 자기 채널이 인정 채널 풀에 등록된 사람만 표시 -->
+    <div id="streamerBlock" style="display:none">
+      <div class="progress-section">
+        <div class="progress-title">
+          <span>📡 방송 시간 누적 (1시간)</span>
+          <span id="streamerHourlyPct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="streamerHourlyFill" style="width: 0%"></div>
+        </div>
+        <div class="progress-title" id="streamerHourlyDetail">0분 / 60분</div>
+        <div class="limit-line" id="streamerWeeklyLimit">
+          주간 한도: <span class="num" id="streamerWeeklyCount">0</span> / 24
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-title">
+          <span>🏆 6시간 스트리밍 보상</span>
+          <span id="streamerCyclePct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill cycle" id="streamerCycleFill" style="width: 0%"></div>
+        </div>
+        <div class="progress-title" id="streamerCycleDetail">0시간 / 6시간</div>
+        <div class="limit-line" id="streamerMonthlyLimit">
+          월간 한도: <span class="num" id="streamerMonthlyCount">0</span> / 12
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <div class="row">
+          <span class="label">📡 총 방송 시간</span>
+          <span class="value" id="streamerTotal">0초</span>
+        </div>
       </div>
     </div>
   </div>
 
   <p class="hint">
     치지직 라이브 시청 페이지를 열어두면 자동으로 시청 시간이 적립됩니다.
-    마일스톤 보상은 디스코드 <code>/드롭스</code> 명령어에서 수령하세요.
+    월간 사이클 보상은 디스코드 <code>/드롭스</code> 명령어에서 수령하세요.
   </p>
 
   <div class="credit">

@@ -61,11 +61,15 @@ async function loadConfig() {
     }
   }
 
-  // 시청 채널 표기 — 채널명 우선, 없으면 channelId 일부, 둘 다 없으면 '-'
-  if (data.lastChannelName) {
+  // 시청 채널 표기 — 최근 ping이 stale하면 잔재 무시 ("이 채널 간 적 없는데"
+  // 같은 현상 방지). 5분 이상 ping 없으면 storage값 의미 없다고 판단.
+  const STALE_MS = 5 * 60 * 1000;
+  const isStale = !data.lastPingAt
+    || (Date.now() - data.lastPingAt) > STALE_MS;
+  if (!isStale && data.lastChannelName) {
     const prefix = data.lastIsPlaying ? "🔴 " : "⚪ ";
     setText("watchChannel", prefix + data.lastChannelName);
-  } else if (data.lastChannelId) {
+  } else if (!isStale && data.lastChannelId) {
     setText("watchChannel", data.lastChannelId.slice(0, 12) + "…");
   } else {
     setText("watchChannel", "-");
@@ -117,6 +121,33 @@ function renderInterpolated() {
   const cyclePct = Math.min(100, (cycleSec / base.cMax) * 100);
   setText("cyclePct", `${cyclePct.toFixed(1)}%`);
   renderQuartered(cycleSec);
+
+  // 스트리머 누적도 보간 — 방송 중일 때만 (streamerActive). 시청자와 별개 카운터.
+  if (base.isStreamer) {
+    const sElapsed = base.streamerActive
+      ? Math.floor((Date.now() - base.streamerFetchedAt) / 1000)
+      : 0;
+
+    const sAcc = base.streamerAccSec + sElapsed;
+    const sAccPct = Math.min(100, (sAcc / base.streamerHMax) * 100);
+    setText("streamerHourlyPct", `${sAccPct.toFixed(1)}%`);
+    setStyle("streamerHourlyFill", "width", `${sAccPct}%`);
+    setText("streamerHourlyDetail", `${fmtMinutes(sAcc)} / 60분`);
+
+    const sCycle = base.streamerCycleSec + sElapsed;
+    const sCyclePct = Math.min(100, (sCycle / base.streamerMilestoneSec) * 100);
+    setText("streamerCyclePct", `${sCyclePct.toFixed(1)}%`);
+    setStyle("streamerCycleFill", "width", `${sCyclePct}%`);
+    const sCycleHours = Math.floor(sCycle / 3600);
+    const sCycleMins = Math.floor((sCycle % 3600) / 60);
+    setText("streamerCycleDetail", `${sCycleHours}시간 ${sCycleMins}분 / 6시간`);
+
+    // 총 방송 시간 — 백엔드에서 받은 total_seconds 그대로 (보간 미적용)
+    const total = base.streamerTotalSec;
+    const totalH = Math.floor(total / 3600);
+    const totalM = Math.floor((total % 3600) / 60);
+    setText("streamerTotal", `${totalH}시간 ${totalM}분`);
+  }
 }
 
 function renderQuartered(cycleSec) {
@@ -146,6 +177,11 @@ function renderQuartered(cycleSec) {
 let _interpBase = {
   accSec: 0, cycleSec: 0, hMax: 3600, cMax: 86400,
   isActive: false, fetchedAt: null,
+  // 스트리머 누적용 (별도 카운터)
+  isStreamer: false,
+  streamerAccSec: 0, streamerCycleSec: 0, streamerTotalSec: 0,
+  streamerHMax: 3600, streamerMilestoneSec: 21600,
+  streamerActive: false, streamerFetchedAt: null,
 };
 
 function renderStatus(status) {
@@ -166,6 +202,7 @@ function renderStatus(status) {
   setText("nickname", status.nickname || "-");
 
   // 다중 활성 채널 표시 — 서버가 active_channels 목록을 주면 모두 표시
+  // (기존 lastChannelName은 단일 채널만 보여줘서 다중 시청 시 갱신 깜빡임)
   const activeChannels = Array.isArray(status.active_channels)
     ? status.active_channels : [];
   if (activeChannels.length > 0) {
@@ -175,6 +212,9 @@ function renderStatus(status) {
       display = `${names.length}채널 · ${display}`;
     }
     setText("watchChannel", display);
+  } else {
+    // 백엔드가 활성 채널 없다고 명시 — storage 잔재 무시하고 휴면으로 표시
+    setText("watchChannel", "-");
   }
 
   const now = Date.now();
@@ -192,8 +232,13 @@ function renderStatus(status) {
   let baselineFetchedAt;
 
   if (lastTickAt > 0) {
+    // 서버가 마지막 누적 시각을 알려준 경우 — 분 안에서 정확한 위치부터 보간.
+    // 예: 백엔드 누적 7분(420s) + 마지막 tick 25초 전 → 표시 "7분 25초"
     baselineFetchedAt = lastTickAt + clockSkew;
   } else {
+    // fallback (last_accumulated_at 컬럼 없거나 아직 한 번도 안 누적된 상태):
+    // baseline을 now로 두면 elapsed=0이라 카운트 안 올라가는 문제 발생.
+    // 이전 보간값을 그대로 유지해서 매 초 +1 흐름 보존.
     baselineFetchedAt = now;
     if (_interpBase.fetchedAt !== null) {
       const elapsedPrev = _interpBase.isActive
@@ -206,6 +251,24 @@ function renderStatus(status) {
     }
   }
 
+  // 스트리머 데이터 baseline — 시청자와 같은 보간 패턴
+  const isStreamer = !!status.is_streamer;
+  const sBlock = document.getElementById("streamerBlock");
+  if (sBlock) sBlock.style.display = isStreamer ? "block" : "none";
+
+  let sBaselineFetchedAt = now;
+  if (isStreamer) {
+    const sLastTick = (status.streamer_last_accumulated_at || 0) * 1000;
+    if (sLastTick > 0) {
+      sBaselineFetchedAt = sLastTick + clockSkew;
+    }
+    // 스트리머 활성 판정 — 마지막 누적이 5분 이내면 방송 중으로 간주
+    const sFresh = (now - sBaselineFetchedAt) < (5 * 60 * 1000);
+    var streamerActive = sFresh;
+  } else {
+    var streamerActive = false;
+  }
+
   _interpBase = {
     accSec: baselineAcc,
     cycleSec: baselineCycle,
@@ -213,11 +276,40 @@ function renderStatus(status) {
     cMax: status.cycle_max || 86400,
     isActive: newIsActive,
     fetchedAt: baselineFetchedAt,
+    // 스트리머
+    isStreamer: isStreamer,
+    streamerAccSec: status.streamer_accumulated_seconds || 0,
+    streamerCycleSec: status.streamer_cycle_seconds || 0,
+    streamerTotalSec: status.streamer_total_seconds || 0,
+    streamerHMax: status.accumulated_max || 3600,
+    streamerMilestoneSec: status.streamer_milestone_seconds || 21600,
+    streamerActive: streamerActive,
+    streamerFetchedAt: sBaselineFetchedAt,
   };
+
+  // 스트리머 한도 표시
+  if (isStreamer) {
+    const sWeekly = status.streamer_weekly_count || 0;
+    const sWeeklyMax = status.streamer_weekly_max || 24;
+    setHTML("#streamerWeeklyLimit",
+        `주간 한도: <span class="num">${sWeekly}</span> / ${sWeeklyMax}`);
+    setClass("#streamerWeeklyLimit", "over", sWeekly >= sWeeklyMax);
+
+    const sMonthly = status.streamer_monthly_count || 0;
+    const sMonthlyMax = status.streamer_monthly_max || 12;
+    setHTML("#streamerMonthlyLimit",
+        `월간 한도: <span class="num">${sMonthly}</span> / ${sMonthlyMax}`);
+    setClass("#streamerMonthlyLimit", "over", sMonthly >= sMonthlyMax);
+  }
+
+  // 보간 함수가 정의되어 있으면 호출 — 옛 popup.js와의 부분 호환성 방어
   if (typeof renderInterpolated === "function") {
     renderInterpolated();
   }
 
+  // 한도 — innerHTML 갱신 한 번으로 통일 (이전엔 #weeklyCount/#monthlyCount를
+  // textContent 갱신한 직후 #weeklyLimit/#monthlyLimit innerHTML 덮어써서
+  // span 자체가 사라지는 버그 있었음 → null 참조 TypeError)
   const weeklyCount = status.weekly_hourly_count || 0;
   const weeklyMax = status.weekly_hourly_max || 24;
   setHTML("#weeklyLimit",

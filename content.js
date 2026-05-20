@@ -126,3 +126,12 @@ if (!attachVideoListeners()) {
 
 document.addEventListener("visibilitychange", sendPing);
 window.addEventListener("beforeunload", () => clearInterval(intervalId));
+
+// background service worker가 chrome.alarms로 깨어났을 때 강제 ping 트리거.
+// Chrome MV3에서 background tab의 setInterval이 throttle되거나 service worker가
+// idle로 죽어서 ping이 안 가는 케이스를 막는 안전망.
+chrome.runtime.onMessage.addListener((msg, _sender, _sendResponse) => {
+  if (msg && msg.type === "FORCE_PING") {
+    sendPing();
+  }
+});
